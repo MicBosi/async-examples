@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8">
+        <title>Callback Hell vs async</title>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/async/1.5.2/async.js"></script>
+    </head>
+    <body>
+        <h1>Callback Hell vs async</h1>
+        <script>
+
+        function getTime()
+        {
+            var now = new Date();
+            return now.getHours() + ':' + now.getMinutes() + ':' + now.getSeconds() + ':' + now.getMilliseconds();
+        }
+
+        function runCallbackHellExample() 
+        {
+            function someAsyncTask(task_id, callback) {
+                setTimeout(function() {
+                    console.log('Done async task: ' + task_id + ' (' + getTime() + ')');
+                    callback();
+                }, 1000);
+            }
+
+            // calling 5 async tasks one after another, the hellish way
+            someAsyncTask(1, function() {
+                someAsyncTask(2, function() {
+                    someAsyncTask(3, function() {
+                        someAsyncTask(4, function() {
+                            someAsyncTask(5, function() {
+                                console.log('All finished.');
+                            });
+                        });
+                    });
+                });
+            });
+        }
+
+        function runSeriesExample() 
+        {
+            function someAsyncTask(task_id, callback) {
+                setTimeout(function() {
+                    console.log('Done async task: ' + task_id + ' (' + getTime() + ')');
+                    // * returning err !== null will abort the execution
+                    // of all tasks and call finalCallback(err)
+                    // * result will be appended to the list of results returned to finalCallback()
+                    callback(/*err=*/null, /*result=*/task_id);
+                }, 1000);
+            }
+
+            function finalCallback(err, results) {
+                console.log('results:');
+                console.log(results); // [1,2,3,4,5]
+            }
+
+            // run these tasks one after the other
+            async.series([
+                    function(callback) { someAsyncTask(1, callback); }, 
+                    function(callback) { someAsyncTask(2, callback); }, 
+                    function(callback) { someAsyncTask(3, callback); }, 
+                    function(callback) { someAsyncTask(4, callback); }, 
+                    function(callback) { someAsyncTask(5, callback); }, 
+                ],
+                finalCallback
+            );
+        }
+
+        function runParallelExample() 
+        {
+            function someAsyncTask(task_id, callback) {
+                setTimeout(function() {
+                    console.log('Done async task: ' + task_id + ' (' + getTime() + ')');
+                    // * returning err !== null will abort the execution
+                    // of all tasks and call finalCallback(err)
+                    // * result will be appended to the list of results returned to finalCallback()
+                    callback(/*err=*/null, /*result=*/task_id);
+                }, 1000);
+            }
+
+            function finalCallback(err, results) {
+                console.log('results:');
+                console.log(results); // [1,2,3,4,5]
+            }
+
+            async.parallel([
+                    function(callback) { someAsyncTask(1, callback); }, 
+                    function(callback) { someAsyncTask(2, callback); }, 
+                    function(callback) { someAsyncTask(3, callback); }, 
+                    function(callback) { someAsyncTask(4, callback); }, 
+                    function(callback) { someAsyncTask(5, callback); }, 
+                ],
+                finalCallback
+            );  
+        }
+
+        function runWaterfallExample()
+        {
+            function step1(callback) {
+                setTimeout(function() {
+                    console.log('Done async step 1: (' + getTime() + ')');
+                    callback(/*err=*/null, /*input1=*/1, /*input2=*/2);
+                }, 1000);
+            }
+
+            function step2(input1, input2, callback) {
+                setTimeout(function() {
+                    console.log('Done async step 2: (' + getTime() + ')');
+                    callback(/*err=*/null, /*input3=*/input1+input2+3);
+                }, 1000);
+            }
+
+            function step3(input3, callback) {
+                setTimeout(function() {
+                    console.log('Done async step 3: (' + getTime() + ')');
+                    callback(/*err=*/null, /*result=*/input3+4);
+                }, 1000);
+            }
+
+            // result is whatever is passed from step3 callback
+            function finalCallback(err, result) {
+                // result == 10 (1 + 2 + 3 + 4)
+                console.log('result: ' + result);
+            }
+
+            async.waterfall([
+                    function(callback) { 
+                        step1(callback);
+                    }, 
+                    function(input1, input2, callback) { 
+                        step2(input1, input2, callback);
+                    }, 
+                    function(input3, callback) { 
+                        step3(input3, callback);
+                    }, 
+                ],
+                finalCallback
+            );
+        }
+
+        function runQueueExample() 
+        {
+            console.log('Queue start at ' + getTime());
+
+            // define the worker function of this queue
+            function queueWorker(data, callback) {
+                setTimeout(function() {
+                    console.log('Processing data: ' + data.animal);
+                    callback();
+                }, 1000);
+            }
+
+            // create queue with worker function queueWorker() and concurrency == 2
+            // so that max 2 queueWorker()s will run at any given time
+            var q = async.queue(queueWorker, 2);
+
+            // called when all items in queue have been processed
+            q.drain = function() {
+                console.log('All items have been processed. ' + getTime());
+            }
+
+            // add task to the end of the queue
+            q.push({animal: 'cat'}, function(err) {
+                // called after this queueWorker has finished
+                console.log('All done with cat. ' + getTime());
+            });
+
+            // add another task to the end of the queue
+            q.push({animal: 'dog'}, function(err) {
+                // called after this queueWorker has finished
+                console.log('All done with dog. ' + getTime());
+            });
+
+            // add multiple tasks to the end of the queue
+            q.push([{animal: 'tiger'}, {animal: 'lion'}, {animal: 'jaguar'}], function(err) {
+                // called after this queueWorker has finished
+                console.log('All done with a big cat. ' + getTime());
+            });
+
+            // add multiple tasks to the beginning of the queue
+            q.unshift({animal: 'spider'}, function(err) {
+                // called after this queueWorker has finished
+                console.log('All done with creepy things. ' + getTime());
+            });
+        }
+
+        </script>
+    </body> 
+</html>
